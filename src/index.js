@@ -10,19 +10,56 @@ const GREETINGS = {
 
 const DEFAULT_LANG = "en";
 
+const isSupported = (code) => Object.prototype.hasOwnProperty.call(GREETINGS, code);
+
+// RFC 7231 / 9110 qvalue: 0 to 1 with at most three decimals.
+const QVALUE = /^(0(\.\d{0,3})?|1(\.0{0,3})?)$/;
+
+// Parse an Accept-Language header into entries sorted by descending q.
+// Entries with q=0 or a malformed q are dropped. Ties keep header order.
+function parseAcceptLanguage(header) {
+  const entries = [];
+  for (const part of header.split(",")) {
+    const [rawTag, ...params] = part.split(";");
+    const tag = rawTag.trim().toLowerCase();
+    if (!tag) continue;
+
+    let q = 1;
+    let valid = true;
+    for (const param of params) {
+      const eq = param.indexOf("=");
+      if (eq === -1) continue;
+      const name = param.slice(0, eq).trim().toLowerCase();
+      const value = param.slice(eq + 1).trim();
+      if (name === "q") {
+        if (QVALUE.test(value)) {
+          q = parseFloat(value);
+        } else {
+          valid = false;
+        }
+      }
+    }
+    if (!valid || q === 0) continue;
+    entries.push({ tag, q, index: entries.length });
+  }
+  return entries
+    .sort((a, b) => b.q - a.q || a.index - b.index)
+    .map(({ tag }) => tag);
+}
+
 function pickLanguage(request) {
   const url = new URL(request.url);
   const requested = url.searchParams.get("lang");
-  if (requested && GREETINGS[requested]) {
+  if (requested && isSupported(requested)) {
     return requested;
   }
 
   const accept = request.headers.get("Accept-Language") || "";
-  for (const part of accept.split(",")) {
-    const tag = part.split(";")[0].trim().toLowerCase();
-    if (tag.startsWith("ja")) return "ja";
-    if (tag.startsWith("zh")) return "zh";
-    if (tag.startsWith("en")) return "en";
+  for (const tag of parseAcceptLanguage(accept)) {
+    if (tag === "*") return DEFAULT_LANG;
+    // Match on the primary subtag, so "ja-JP" -> ja and "zh-Hant" -> zh.
+    const primary = tag.split("-")[0];
+    if (isSupported(primary)) return primary;
   }
   return DEFAULT_LANG;
 }
@@ -61,28 +98,36 @@ function renderPage(lang) {
 </html>`;
 }
 
+// Build a response. For HEAD requests the headers are kept but the body is
+// dropped, as HTTP requires.
+function respond(request, body, init) {
+  return new Response(request.method === "HEAD" ? null : body, init);
+}
+
 export default {
   async fetch(request) {
     if (request.method !== "GET" && request.method !== "HEAD") {
-      return new Response("Method Not Allowed", {
+      return respond(request, "Method Not Allowed", {
         status: 405,
-        headers: { Allow: "GET, HEAD" },
+        headers: { Allow: "GET, HEAD", "Content-Type": "text/plain; charset=utf-8" },
       });
     }
 
     const url = new URL(request.url);
     if (url.pathname === "/health") {
-      return new Response("ok", { headers: { "Content-Type": "text/plain; charset=utf-8" } });
+      return respond(request, "ok", {
+        headers: { "Content-Type": "text/plain; charset=utf-8" },
+      });
     }
     if (url.pathname !== "/") {
-      return new Response("Not Found", {
+      return respond(request, "Not Found", {
         status: 404,
         headers: { "Content-Type": "text/plain; charset=utf-8" },
       });
     }
 
     const lang = pickLanguage(request);
-    return new Response(request.method === "HEAD" ? null : renderPage(lang), {
+    return respond(request, renderPage(lang), {
       headers: {
         "Content-Type": "text/html; charset=utf-8",
         "Content-Language": lang,
