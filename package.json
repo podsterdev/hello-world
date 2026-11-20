@@ -3,7 +3,11 @@
   "version": "1.0.0",
   "private": true,
   "description": "Hello World web app (English, Japanese, Chinese) for Cloudflare Workers",
+  "type": "module",
   "main": "src/index.js",
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",

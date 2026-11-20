@@ -15,10 +15,15 @@ const isSupported = (code) => Object.prototype.hasOwnProperty.call(GREETINGS, co
 // RFC 7231 / 9110 qvalue: 0 to 1 with at most three decimals.
 const QVALUE = /^(0(\.\d{0,3})?|1(\.0{0,3})?)$/;
 
-// Parse an Accept-Language header into entries sorted by descending q.
-// Entries with q=0 or a malformed q are dropped. Ties keep header order.
+// Parse an Accept-Language header. Returns:
+//   ranked:    tags with q > 0, sorted by descending q (ties keep header order).
+//   mentioned: primary subtags of every well-formed entry, including q=0 ones.
+//              "*" uses this so it never re-admits a language the client listed
+//              (either accepted or excluded) explicitly.
+// Entries with a malformed q are skipped entirely.
 function parseAcceptLanguage(header) {
   const entries = [];
+  const mentioned = new Set();
   for (const part of header.split(",")) {
     const [rawTag, ...params] = part.split(";");
     const tag = rawTag.trim().toLowerCase();
@@ -39,12 +44,23 @@ function parseAcceptLanguage(header) {
         }
       }
     }
-    if (!valid || q === 0) continue;
+    if (!valid) continue;
+    mentioned.add(tag.split("-")[0]);
+    if (q === 0) continue;
     entries.push({ tag, q, index: entries.length });
   }
-  return entries
+  const ranked = entries
     .sort((a, b) => b.q - a.q || a.index - b.index)
     .map(({ tag }) => tag);
+  return { ranked, mentioned };
+}
+
+// Languages a wildcard ("*") may select: supported languages the client did not
+// list at all, English first, then table order. Returns null when every
+// supported language was listed, so the wildcard has nothing left to match.
+const WILDCARD_ORDER = [DEFAULT_LANG, ...Object.keys(GREETINGS).filter((c) => c !== DEFAULT_LANG)];
+function wildcardLanguage(mentioned) {
+  return WILDCARD_ORDER.find((code) => !mentioned.has(code)) ?? null;
 }
 
 function pickLanguage(request) {
@@ -55,12 +71,18 @@ function pickLanguage(request) {
   }
 
   const accept = request.headers.get("Accept-Language") || "";
-  for (const tag of parseAcceptLanguage(accept)) {
-    if (tag === "*") return DEFAULT_LANG;
+  const { ranked, mentioned } = parseAcceptLanguage(accept);
+  for (const tag of ranked) {
+    if (tag === "*") {
+      const fallback = wildcardLanguage(mentioned);
+      if (fallback) return fallback;
+      continue;
+    }
     // Match on the primary subtag, so "ja-JP" -> ja and "zh-Hant" -> zh.
     const primary = tag.split("-")[0];
     if (isSupported(primary)) return primary;
   }
+  // No supported language is acceptable: fall back to English.
   return DEFAULT_LANG;
 }
 

@@ -142,6 +142,41 @@ test("wildcard maps to English default", async () => {
   assert.equal((await pageLang("/", { "Accept-Language": "*" })).lang, "en");
 });
 
+test("wildcard does not re-admit an explicitly excluded language (regression)", async () => {
+  // en is excluded with q=0, so * must not select English. ja is listed at 0.5,
+  // so * cannot select it either; zh is the only unlisted supported language.
+  const { lang } = await pageLang("/", { "Accept-Language": "en;q=0, *;q=0.9, ja;q=0.5" });
+  assert.equal(lang, "zh");
+});
+
+test("wildcard picks the first unlisted supported language when English is excluded", async () => {
+  assert.equal((await pageLang("/", { "Accept-Language": "en;q=0, *" })).lang, "ja");
+});
+
+test("wildcard honors primary-subtag exclusion (en-GB;q=0 excludes en)", async () => {
+  assert.equal((await pageLang("/", { "Accept-Language": "en-GB;q=0, *;q=0.5" })).lang, "ja");
+});
+
+test("wildcard with q=0 selects nothing and falls back to English", async () => {
+  assert.equal((await pageLang("/", { "Accept-Language": "*;q=0" })).lang, "en");
+});
+
+test("wildcard ranked below a listed supported language does not override it", async () => {
+  assert.equal((await pageLang("/", { "Accept-Language": "*;q=0.2, zh;q=0.5" })).lang, "zh");
+});
+
+test("wildcard still picks an unlisted language above a lower-ranked listed one", async () => {
+  // en is listed at 0.3, so * (0.9) selects the next unlisted language, ja.
+  assert.equal((await pageLang("/", { "Accept-Language": "en;q=0.3, *;q=0.9" })).lang, "ja");
+});
+
+test("no supported language acceptable falls back to English (all listed, all excluded)", async () => {
+  const { lang } = await pageLang("/", {
+    "Accept-Language": "en;q=0, ja;q=0, zh;q=0, *;q=0.9",
+  });
+  assert.equal(lang, "en");
+});
+
 test("unsupported languages fall back to English", async () => {
   const { lang } = await pageLang("/", { "Accept-Language": "fr-FR, de;q=0.8" });
   assert.equal(lang, "en");
