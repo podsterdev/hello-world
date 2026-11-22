@@ -18,11 +18,15 @@ Other routes: `/health` returns `ok`; any other path returns 404; methods other 
 
 ## Development
 
-The project is ES modules (`"type": "module"` in `package.json`), so it loads without relying on Node's module auto-detection. Minimum Node.js: 18 (declared in `engines`).
+The project is ES modules (`"type": "module"` in `package.json`), so it loads without relying on Node's module auto-detection.
+
+Development requires Node.js 22.12.0 or later (declared in `engines`, and the minimum for the pinned Wrangler 4.166.0). Verified with `wrangler dev` on Node.js 22.23.5.
+
+The unit tests have a lower minimum: they run on Node.js 18 (verified on 18.20.8 with `node --test`), but Wrangler itself does not.
 
 ```sh
 npm install
-npm run dev     # wrangler dev, local at http://localhost:8787
+npm run dev     # wrangler dev, local at http://localhost:8787 (Node.js 22.12.0+)
 npm test        # unit tests (Node.js 18+)
 ```
 
