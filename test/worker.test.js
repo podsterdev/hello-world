@@ -92,6 +92,13 @@ test("language links are present for all three languages", async () => {
   assert.match(html, /<a href="\/\?lang=en" hreflang="en" aria-current="true">/);
 });
 
+test("aria-current moves to the selected non-English language link", async () => {
+  const { html } = await pageLang("/?lang=zh");
+  assert.match(html, /<a href="\/\?lang=zh" hreflang="zh" aria-current="true">/);
+  assert.doesNotMatch(html, /<a href="\/\?lang=en" hreflang="en" aria-current/);
+  assert.doesNotMatch(html, /<a href="\/\?lang=ja" hreflang="ja" aria-current/);
+});
+
 // ---- Accept-Language negotiation -------------------------------------------
 
 test("Accept-Language selects a supported language", async () => {
