@@ -1,12 +1,14 @@
 // Hello World web app for Cloudflare Workers.
-// Supports English, Japanese, Chinese, and Vietnamese.
-// Language selection: ?lang=en|ja|zh|vi, else Accept-Language header, else English.
+// Supports English, Japanese, Chinese, Vietnamese, and Khmer.
+// Language selection: ?lang=en|ja|zh|vi|km, else Accept-Language header, else English.
 
 const GREETINGS = {
   en: { lang: "en", label: "English", title: "Hello World", message: "Hello, World!" },
   ja: { lang: "ja", label: "日本語", title: "こんにちは世界", message: "こんにちは、世界！" },
   zh: { lang: "zh", label: "中文", title: "你好，世界", message: "你好，世界！" },
   vi: { lang: "vi", label: "Tiếng Việt", title: "Xin chào, thế giới", message: "Xin chào, thế giới!" },
+  // Khmer copy is PROPOSED and pending review by Patrick before release.
+  km: { lang: "km", label: "ភាសាខ្មែរ", title: "សួស្តី ពិភពលោក", message: "សួស្តី ពិភពលោក!" },
 };
 
 const DEFAULT_LANG = "en";
@@ -57,7 +59,7 @@ function parseAcceptLanguage(header) {
 }
 
 // Languages a wildcard ("*") may select: supported languages the client did not
-// list at all, English first, then table order (ja, zh, vi). Returns null when every
+// list at all, English first, then table order (ja, zh, vi, km). Returns null when every
 // supported language was listed, so the wildcard has nothing left to match.
 const WILDCARD_ORDER = [DEFAULT_LANG, ...Object.keys(GREETINGS).filter((c) => c !== DEFAULT_LANG)];
 function wildcardLanguage(mentioned) {
@@ -104,7 +106,7 @@ function renderPage(lang) {
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>${t.title}</title>
   <style>
-    body { font-family: system-ui, -apple-system, "Segoe UI", "Hiragino Sans", "Noto Sans JP", "Noto Sans SC", sans-serif;
+    body { font-family: system-ui, -apple-system, "Segoe UI", "Hiragino Sans", "Noto Sans JP", "Noto Sans SC", "Noto Sans Khmer", "Khmer OS", sans-serif;
            margin: 0; min-height: 100vh; display: flex; flex-direction: column;
            align-items: center; justify-content: center; background: #f5f7fa; color: #1a1a1a; }
     h1 { font-size: 3rem; margin: 0 0 1rem; }
