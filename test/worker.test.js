@@ -84,14 +84,65 @@ test("empty ?lang falls back to default", async () => {
   assert.equal(lang, "en");
 });
 
-test("language links are present for all four languages", async () => {
+test("language links are present for all five languages", async () => {
   const { html } = await pageLang("/?lang=en");
   assert.match(html, /href="\/\?lang=en"/);
   assert.match(html, /href="\/\?lang=ja"/);
   assert.match(html, /href="\/\?lang=zh"/);
   assert.match(html, /href="\/\?lang=vi"/);
+  assert.match(html, /href="\/\?lang=km"/);
   assert.match(html, /<a href="\/\?lang=en" hreflang="en" aria-current="true">/);
   assert.match(html, /<a href="\/\?lang=vi" hreflang="vi">Tiếng Việt<\/a>/);
+  assert.match(html, /<a href="\/\?lang=km" hreflang="km">ភាសាខ្មែរ<\/a>/);
+});
+
+test("?lang=km renders the Khmer greeting with lang, Content-Language, and picker state", async () => {
+  const { res, html, lang } = await pageLang("/?lang=km");
+  assert.equal(res.status, 200);
+  assert.equal(lang, "km");
+  assert.equal(res.headers.get("Content-Language"), "km");
+  assert.match(html, /<h1>សួស្តី ពិភពលោក!<\/h1>/);
+  assert.match(html, /<title>សួស្តី ពិភពលោក<\/title>/);
+  assert.match(html, /<a href="\/\?lang=km" hreflang="km" aria-current="true">ភាសាខ្មែរ<\/a>/);
+  assert.doesNotMatch(html, /<a href="\/\?lang=en" hreflang="en" aria-current/);
+});
+
+test("?lang=km overrides Accept-Language preferences", async () => {
+  const { res, lang } = await pageLang("/?lang=km", { "Accept-Language": "ja;q=1, en;q=0.9" });
+  assert.equal(lang, "km");
+  assert.equal(res.headers.get("Content-Language"), "km");
+});
+
+test("Accept-Language km-KH selects Khmer", async () => {
+  const { res, html, lang } = await pageLang("/", { "Accept-Language": "km-KH" });
+  assert.equal(lang, "km");
+  assert.equal(res.headers.get("Content-Language"), "km");
+  assert.match(html, /<h1>សួស្តី ពិភពលោក!<\/h1>/);
+});
+
+test("weighted Accept-Language selects Khmer by q, regardless of header order", async () => {
+  assert.equal((await pageLang("/", { "Accept-Language": "ja;q=0.2, km;q=0.9" })).lang, "km");
+  assert.equal((await pageLang("/", { "Accept-Language": "km;q=0.4, en;q=0.9" })).lang, "en");
+});
+
+test("km;q=0 excludes Khmer and falls back to English", async () => {
+  assert.equal((await pageLang("/", { "Accept-Language": "km;q=0" })).lang, "en");
+  assert.equal((await pageLang("/", { "Accept-Language": "km-KH;q=0, zh;q=0.5" })).lang, "zh");
+});
+
+test("HEAD /?lang=km returns Khmer headers with no body", async () => {
+  const res = await call("/?lang=km", { method: "HEAD" });
+  assert.equal(res.status, 200);
+  assert.equal(res.headers.get("Content-Language"), "km");
+  assert.equal(res.headers.get("Content-Type"), "text/html; charset=utf-8");
+  assert.equal(res.body, null);
+});
+
+test("wildcard selects Khmer once every other supported language is listed", async () => {
+  const { lang } = await pageLang("/", {
+    "Accept-Language": "en;q=0, ja;q=0, zh;q=0, vi;q=0, *;q=0.9",
+  });
+  assert.equal(lang, "km");
 });
 
 test("aria-current moves to the selected non-English language link", async () => {
@@ -145,8 +196,14 @@ test("wildcard can select Vietnamese once every other supported language is list
 });
 
 test("wildcard does not re-admit an explicitly excluded Vietnamese", async () => {
+  // Khmer is the only unlisted supported language left, so * selects it, not vi.
   const { lang } = await pageLang("/", { "Accept-Language": "en;q=0, ja;q=0, zh;q=0, vi;q=0, *" });
-  assert.equal(lang, "en");
+  assert.equal(lang, "km");
+});
+
+test("wildcard does not re-admit an explicitly excluded Khmer", async () => {
+  const { lang } = await pageLang("/", { "Accept-Language": "en;q=0, ja;q=0, zh;q=0, km;q=0, *" });
+  assert.equal(lang, "vi");
 });
 
 // ---- Accept-Language negotiation -------------------------------------------
@@ -229,7 +286,7 @@ test("wildcard still picks an unlisted language above a lower-ranked listed one"
 
 test("no supported language acceptable falls back to English (all listed, all excluded)", async () => {
   const { lang } = await pageLang("/", {
-    "Accept-Language": "en;q=0, ja;q=0, zh;q=0, vi;q=0, *;q=0.9",
+    "Accept-Language": "en;q=0, ja;q=0, zh;q=0, vi;q=0, km;q=0, *;q=0.9",
   });
   assert.equal(lang, "en");
 });
