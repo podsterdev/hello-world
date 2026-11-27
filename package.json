@@ -4,7 +4,7 @@
   "private": true,
   "description": "Hello World web app (English, Japanese, Chinese) for Cloudflare Workers",
   "type": "module",
-  "main": "src/index.js",
+  "main": "site/worker/index.js",
   "engines": {
     "node": ">=22.12.0"
   },

@@ -4,7 +4,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import worker from "../src/index.js";
+import worker from "../site/worker/index.js";
 
 const BASE = "https://example.test";
 
