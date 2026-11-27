@@ -84,12 +84,14 @@ test("empty ?lang falls back to default", async () => {
   assert.equal(lang, "en");
 });
 
-test("language links are present for all three languages", async () => {
+test("language links are present for all four languages", async () => {
   const { html } = await pageLang("/?lang=en");
   assert.match(html, /href="\/\?lang=en"/);
   assert.match(html, /href="\/\?lang=ja"/);
   assert.match(html, /href="\/\?lang=zh"/);
+  assert.match(html, /href="\/\?lang=vi"/);
   assert.match(html, /<a href="\/\?lang=en" hreflang="en" aria-current="true">/);
+  assert.match(html, /<a href="\/\?lang=vi" hreflang="vi">Tiếng Việt<\/a>/);
 });
 
 test("aria-current moves to the selected non-English language link", async () => {
@@ -97,6 +99,54 @@ test("aria-current moves to the selected non-English language link", async () =>
   assert.match(html, /<a href="\/\?lang=zh" hreflang="zh" aria-current="true">/);
   assert.doesNotMatch(html, /<a href="\/\?lang=en" hreflang="en" aria-current/);
   assert.doesNotMatch(html, /<a href="\/\?lang=ja" hreflang="ja" aria-current/);
+  assert.doesNotMatch(html, /<a href="\/\?lang=vi" hreflang="vi" aria-current/);
+});
+
+test("?lang=vi renders the Vietnamese greeting", async () => {
+  const { res, html, lang } = await pageLang("/?lang=vi");
+  assert.equal(res.status, 200);
+  assert.equal(lang, "vi");
+  assert.equal(res.headers.get("Content-Language"), "vi");
+  assert.match(html, /<h1>Xin chào, thế giới!<\/h1>/);
+  assert.match(html, /<title>Xin chào, thế giới<\/title>/);
+  assert.match(html, /<a href="\/\?lang=vi" hreflang="vi" aria-current="true">Tiếng Việt<\/a>/);
+  assert.doesNotMatch(html, /<a href="\/\?lang=en" hreflang="en" aria-current/);
+});
+
+test("?lang=vi overrides Accept-Language preferences", async () => {
+  const { res, lang } = await pageLang("/?lang=vi", { "Accept-Language": "ja;q=1, en;q=0.9" });
+  assert.equal(res.headers.get("Content-Language"), "vi");
+  assert.equal(lang, "vi");
+});
+
+test("Accept-Language vi-VN selects Vietnamese", async () => {
+  const { res, html, lang } = await pageLang("/", { "Accept-Language": "vi-VN" });
+  assert.equal(lang, "vi");
+  assert.equal(res.headers.get("Content-Language"), "vi");
+  assert.match(html, /<h1>Xin chào, thế giới!<\/h1>/);
+});
+
+test("weighted Accept-Language selects Vietnamese by q, regardless of header order", async () => {
+  assert.equal((await pageLang("/", { "Accept-Language": "ja;q=0.2, vi;q=0.9" })).lang, "vi");
+  assert.equal((await pageLang("/", { "Accept-Language": "en;q=0.3, vi;q=0.8, zh;q=0.5" })).lang, "vi");
+  assert.equal((await pageLang("/", { "Accept-Language": "vi;q=0.4, en;q=0.9" })).lang, "en");
+});
+
+test("vi;q=0 excludes Vietnamese and falls back to English", async () => {
+  assert.equal((await pageLang("/", { "Accept-Language": "vi;q=0" })).lang, "en");
+  assert.equal((await pageLang("/", { "Accept-Language": "vi-VN;q=0, ja;q=0.5" })).lang, "ja");
+});
+
+test("wildcard can select Vietnamese once every other supported language is listed", async () => {
+  const { lang } = await pageLang("/", {
+    "Accept-Language": "en;q=0, ja;q=0, zh;q=0, *;q=0.9",
+  });
+  assert.equal(lang, "vi");
+});
+
+test("wildcard does not re-admit an explicitly excluded Vietnamese", async () => {
+  const { lang } = await pageLang("/", { "Accept-Language": "en;q=0, ja;q=0, zh;q=0, vi;q=0, *" });
+  assert.equal(lang, "en");
 });
 
 // ---- Accept-Language negotiation -------------------------------------------
@@ -179,7 +229,7 @@ test("wildcard still picks an unlisted language above a lower-ranked listed one"
 
 test("no supported language acceptable falls back to English (all listed, all excluded)", async () => {
   const { lang } = await pageLang("/", {
-    "Accept-Language": "en;q=0, ja;q=0, zh;q=0, *;q=0.9",
+    "Accept-Language": "en;q=0, ja;q=0, zh;q=0, vi;q=0, *;q=0.9",
   });
   assert.equal(lang, "en");
 });
@@ -261,6 +311,14 @@ test("HEAD /health returns 200 with no body", async () => {
 test("HEAD on unknown path returns 404 with no body", async () => {
   const res = await call("/missing", { method: "HEAD" });
   assert.equal(res.status, 404);
+  assert.equal(res.body, null);
+});
+
+test("HEAD /?lang=vi returns Vietnamese headers with no body", async () => {
+  const res = await call("/?lang=vi", { method: "HEAD" });
+  assert.equal(res.status, 200);
+  assert.equal(res.headers.get("Content-Language"), "vi");
+  assert.equal(res.headers.get("Content-Type"), "text/html; charset=utf-8");
   assert.equal(res.body, null);
 });
 

@@ -2,7 +2,7 @@
   "name": "hello-world",
   "version": "1.0.0",
   "private": true,
-  "description": "Hello World web app (English, Japanese, Chinese) for Cloudflare Workers",
+  "description": "Hello World web app (English, Japanese, Chinese, Vietnamese) for Cloudflare Workers",
   "type": "module",
   "main": "site/worker/index.js",
   "engines": {

@@ -1,16 +1,19 @@
 # hello-world
 
-A Hello World web app deployable to Cloudflare Workers. It supports English, Japanese, and Chinese.
+A Hello World web app deployable to Cloudflare Workers. It supports English, Japanese, Chinese, and Vietnamese.
 
 ## Languages
 
 - `/?lang=en` — English: "Hello, World!"
 - `/?lang=ja` — 日本語: "こんにちは、世界！"
 - `/?lang=zh` — 中文: "你好，世界！"
+- `/?lang=vi` — Tiếng Việt: "Xin chào, thế giới!"
 
-If no valid `lang` parameter is given, the language is chosen from the `Accept-Language` header. Header entries are ranked by their `q` weight (highest first, ties in header order), `q=0` entries are never chosen, and only the primary subtag is matched (`ja-JP` → Japanese, `zh-Hant` → Chinese).
+The language picker on the page links to these URLs. An explicit `lang` parameter always wins over the browser's `Accept-Language` header, so `/?lang=vi` renders Vietnamese even for a browser that prefers Japanese. Responses for every language set `<html lang>` and the `Content-Language` header to the chosen code.
 
-Wildcard (`*`) matches only languages the header does not list at all, with English preferred, then Japanese, then Chinese. A language listed with `q=0` is excluded from the wildcard too, so `en;q=0, *;q=0.9, ja;q=0.5` returns Chinese. `*;q=0` selects nothing.
+If no valid `lang` parameter is given, the language is chosen from the `Accept-Language` header. Header entries are ranked by their `q` weight (highest first, ties in header order), `q=0` entries are never chosen, and only the primary subtag is matched (`ja-JP` → Japanese, `zh-Hant` → Chinese, `vi-VN` → Vietnamese). For example, `ja;q=0.2, vi;q=0.9` returns Vietnamese.
+
+Wildcard (`*`) matches only languages the header does not list at all, with English preferred, then Japanese, Chinese, and Vietnamese. A language listed with `q=0` is excluded from the wildcard too, so `en;q=0, *;q=0.9, ja;q=0.5` returns Chinese. `*;q=0` selects nothing.
 
 Fallback: if no supported language is acceptable (the header is missing, lists only unsupported languages, excludes every supported language, or the wildcard has no unlisted language left), the response is English.
 
