@@ -272,3 +272,20 @@ test("HEAD / honors Accept-Language negotiation", async () => {
   assert.equal(res.headers.get("Content-Language"), "zh");
   assert.equal(res.body, null);
 });
+
+test("HEAD /?lang=ja ignores Accept-Language: zh and matches GET headers with an empty body", async () => {
+  const headers = { "Accept-Language": "zh" };
+
+  const get = await call("/?lang=ja", { headers });
+  const getHtml = await get.text();
+  assert.equal(get.status, 200);
+  assert.match(getHtml, /<h1>こんにちは、世界！<\/h1>/);
+  assert.equal(get.headers.get("Content-Language"), "ja");
+
+  const head = await call("/?lang=ja", { method: "HEAD", headers });
+  assert.equal(head.status, 200);
+  for (const name of ["Content-Type", "Content-Language", "Vary", "Cache-Control"]) {
+    assert.equal(head.headers.get(name), get.headers.get(name), `${name} should match GET`);
+  }
+  assert.equal(await head.text(), "");
+});
