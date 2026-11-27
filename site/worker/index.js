@@ -1,11 +1,12 @@
 // Hello World web app for Cloudflare Workers.
-// Supports English, Japanese, and Chinese.
-// Language selection: ?lang=en|ja|zh, else Accept-Language header, else English.
+// Supports English, Japanese, Chinese, and Vietnamese.
+// Language selection: ?lang=en|ja|zh|vi, else Accept-Language header, else English.
 
 const GREETINGS = {
   en: { lang: "en", label: "English", title: "Hello World", message: "Hello, World!" },
   ja: { lang: "ja", label: "日本語", title: "こんにちは世界", message: "こんにちは、世界！" },
   zh: { lang: "zh", label: "中文", title: "你好，世界", message: "你好，世界！" },
+  vi: { lang: "vi", label: "Tiếng Việt", title: "Xin chào, thế giới", message: "Xin chào, thế giới!" },
 };
 
 const DEFAULT_LANG = "en";
@@ -56,7 +57,7 @@ function parseAcceptLanguage(header) {
 }
 
 // Languages a wildcard ("*") may select: supported languages the client did not
-// list at all, English first, then table order. Returns null when every
+// list at all, English first, then table order (ja, zh, vi). Returns null when every
 // supported language was listed, so the wildcard has nothing left to match.
 const WILDCARD_ORDER = [DEFAULT_LANG, ...Object.keys(GREETINGS).filter((c) => c !== DEFAULT_LANG)];
 function wildcardLanguage(mentioned) {
